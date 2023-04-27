@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--<meta http-equiv="refresh" content="0; url=list.html" />-->
+<title>CODEDEX CODE EDITOR</title>
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+
+<style type="text/css" media="screen">
+	html, body {
+	    height:100%;
+	}
+	
+	#bodyContent{
+		display:flex;
+		position:relative;
+		width:100%;
+		height:calc(100% - 40px);
+		bottom:0px;
+	}
+    #editor { 
+        position: absolute;
+        top: 0px;
+        right: 0;
+        bottom: 0;
+        left: 150px;
+    }
+    #header {
+    	position:relative;
+    	top:0;
+    	height:40px;
+    }
+    #tabList {
+    	position:absolute;
+    	display:inline-block;
+    	
+    	list-style: none;
+    	white-space:nowrap;
+
+    	height:49px;
+    	
+    	margin:0;
+    	padding:0;
+    	
+    	overflow-x:scroll;
+	    overflow-y: hidden;
+    }
+    #tabList>li {
+    	display:inline-block;
+    	
+    	height:30px;
+    	min-width:70px;
+    	padding:0 5px;
+    	margin:0 3px;
+    	line-height:49px
+    	
+    	border:1px solid #CCC;
+    	border-radius:3px;
+    	background-color:#999;
+    	color:#EFE;
+    
+    	cursor:pointer;
+    	
+    	vertical-align: middle;
+    	text-align:center;
+    }
+    .glyphicon {
+    	vertical-align: middle;
+    }
+    .tabListButton {
+    	height:49px;
+    	width:30px;
+    	font-size:25px;
+    	
+    	text-align:center;
+    	vertical-align: middle;
+    	
+    	cursor:pointer;
+    }
+    #buttonDiv {
+    	display:inline-block;
+    	position:relative;
+    	height:49px;
+    }
+    
+    #fileStructureTree {
+    	display:block;
+    	position:relative;
+    	width:150px;
+    	top:0px;
+    	bottom:0px;
+    	z-index:15;
+    	
+    	overflow:scroll;
+    	
+    	background-color:white;
+    }
+    ul.tree {
+    	width:auto;
+    }
+    .identifier {
+    	display:inline-block;
+    	width:100%;
+    }
+	ul.tree, ul.tree ul {
+		list-style-type: none;
+		background: url(http://odyniec.net/articles/turning-lists-into-trees/vline.png) repeat-y;
+		margin: 0;
+		padding: 0;
+	}
+	
+	ul.tree ul {
+		margin-left: 14px;
+	}
+	
+	ul.tree li {
+		cursor:pointer;
+		margin: 0;
+		padding: 0 8px;
+		line-height: 20px;
+		background: url(http://odyniec.net/articles/turning-lists-into-trees/node.png) no-repeat;
+		color: #369;
+		font-weight: bold;
+		width:max-content;
+	}
+	
+	ul.tree li:last-child {
+		background: #fff url(http://odyniec.net/articles/turning-lists-into-trees/lastnode.png) no-repeat;
+	}
+
+</style>
+
+<script type="text/x-template" id="fileTree-template">
+	<li v-bind:type="model.type">
+		<div class="identifier"
+			@click="toggle"
+			v-on:mouseenter="isHover=true"
+			v-on:mouseleave="isHover=false"
+		>
+			<span
+				class="glyphicon glyphicon-triangle-right"
+				v-if="isDirectory"
+				v-show="!open"
+			></span>
+			<span 
+				class="glyphicon glyphicon-triangle-bottom" 
+				v-if="isDirectory" 
+				v-show="open"
+			></span>
+			<span style="white-space: nowrap;">{{model.name}}</span>
+			
+			<span 
+				class="glyphicon glyphicon-plus" 
+				v-if="isDirectory"
+				v-show="isHover"
+				@click="newThing(model)"
+				@click.prevent="toggle"
+			></span>
+		</div>
+		<ul v-if="isDirectory" v-show="open">
+			<filetree
+				class="fileTree"
+				v-for="model in model.children"
+				:model="model"
+				:key="model.name">
+			</filetree>
+		</ul>
+	</li>
+</script>
+</head>
+<body>
+	<div id="header">
+		
+		<div id="buttonDiv">
+			<span id="Save" class="glyphicon glyphicon-upload tabListButton" aria-hidden="true" v-on:click="saveFiles"></span>
+			<span id="Run" class="glyphicon glyphicon-play-circle tabListButton" aria-hidden="true" v-on:click="runFiles"></span>
+			<span id="Setting" class="glyphicon glyphicon glyphicon-asterisk tabListButton" aria-hidden="true" v-on:click="changeSetting"></span>
+		</div>
+		
+		<ul id="tabList" role="tablist" v-bind:style="{width:width+'px'}">
+			<li class="tabElement" role="tab" v-for="tab in tabList" v-on:click="selectTab(tabList.indexOf(tab), $event)">
+				<div>
+					<div style="display: inline-block; text-overflow: ellipsis; overflow: hidden; vertical-align:middle">
+						{{ tab.name }}
+					</div>
+					<div
+						style="line-height:20px; display:inline-block; vertical-align:middle"
+						class="glyphicon glyphicon-remove"
+						@click="removeTab(tab)"
+					></div>
+				</div>
+			</li>
+		</ul>
+	</div>
+	
+	<div id="bodyContent">
+		<div id="fileStructureTree">
+			<ul class="tree">
+				<filetree
+					class="fileTree"
+					:model="files">
+				</filetree>
+			</ul>
+		</div>
+		<div id="editor"></div>
+		<!--http://odyniec.net/articles/turning-lists-into-trees/-->
+	</div>
+	
+<div class="modal fade" tabindex="-1" role="dialog" id="newModal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">New File or Folder</h4>
+      </div>
+      <div class="modal-body">
+			<div class="form-group">
+				<label for="filePath">filePath</label>
+				<ol class="breadcrumb">
+					<li class="breadcrumb-item" v-for="p in model.path">{{p}}</li>
+					<li class="breadcrumb-item active">{{fileNameData}}</li>
+					<!--active-->
+				</ol>
+			</div>
+		  <div class="form-group">
+		    <label for="fileName">fileName</label>
+		    <input type="text" class="form-control" id="fileName" placeholder="fileName" v-model="fileNameData">
+		  </div>
+		  <div class="form-group">
+		    <label class="custom-control custom-radio">
+				<input id="radio1" name="radio" value="file" type="radio" class="custom-control-input" v-model="type" checked>
+				<span class="custom-control-indicator"></span>
+				<span class="custom-control-description">file</span>
+			</label>
+			<label class="custom-control custom-radio">
+				<input id="radio2" name="radio" type="radio" class="custom-control-input" value="directory" v-model="type">
+				<span class="custom-control-indicator"></span>
+				<span class="custom-control-description">directory</span>
+			</label>
+		  </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" @click="close">Close</button>
+        <button type="button" class="btn btn-primary" @click="saveNewFile">Save changes</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+<div class="modal fade" tabindex="-1" role="dialog" id="settingModal">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title">Settings</h4>
+      </div>
+      <div class="modal-body">
+		  <div class="form-group" v-for="s in setting">
+		    <label v-bind:for="s.name">{{s.name}}</label>
+		    <input
+		    	v-if="s.type=='string'"
+		    	type="text"
+		    	class="form-control"
+		    	v-bind:id="s.name"
+		    	v-bind:placeholder="s.name"
+		    	v-model="s.value">
+		    <button
+		    	v-if="s.type=='bool'"
+		    	class="btn btn-block"
+		    	v-bind:class="{'btn-primary':s.value,'btn-default':!s.value}"
+		    	@click="toggle(s)"
+		    	>{{s.value}}</button>
+		  </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="saveNewFile">Save changes</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.8/ace.js" type="text/javascript" charset="utf-8"></script>
+<script src="https://unpkg.com/vue@2.4.2" type="text/javascript" charset="utf-8"></script>
+<script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script src="index.js"></script>
+</body>
+</html>
